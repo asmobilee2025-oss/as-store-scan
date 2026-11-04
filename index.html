@@ -58,6 +58,14 @@
     <button onclick="submitManual()">تحقّق</button>
   </div>
 
+  <div class="row" id="resetRow">
+    <button class="ghost" style="flex:1" onclick="askReset()">♻️ تصفير الجرد</button>
+  </div>
+  <div class="row" id="confirmRow" style="display:none">
+    <button onclick="doReset()" style="flex:1;background:var(--bad);color:#fff">✓ أكيد، صفّر الكل</button>
+    <button class="ghost" style="flex:1" onclick="cancelReset()">✗ تراجع</button>
+  </div>
+
   <details id="cfg">
     <summary>⚙️ الإعداد (مرة وحدة)</summary>
     <label>رابط الـ Web App من Apps Script (ينتهي بـ /exec)</label>
@@ -135,6 +143,32 @@
     handle(m.value); m.value=''; m.focus();
   }
   document.getElementById('manual').addEventListener('keydown', function(e){ if(e.key==='Enter') submitManual(); });
+
+  // تصفير الجرد بتأكيد بضغطتين
+  function askReset(){
+    document.getElementById('resetRow').style.display='none';
+    document.getElementById('confirmRow').style.display='flex';
+    setRes('متأكد تصفّر كل علامات الجرد؟', 'dup', 'بتتمسح كل ✅ من الشيت');
+  }
+  function cancelReset(){
+    document.getElementById('confirmRow').style.display='none';
+    document.getElementById('resetRow').style.display='flex';
+    setRes('تم الإلغاء — ما صار إشي', '');
+  }
+  function doReset(){
+    document.getElementById('confirmRow').style.display='none';
+    document.getElementById('resetRow').style.display='flex';
+    setRes('… جاري التصفير', '');
+    if(!WAURL){ setRes('ما في رابط — افتح الإعداد', 'bad'); return; }
+    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
+    var s = document.createElement('script'); var done = false;
+    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); cnt=0; document.getElementById('cnt').textContent='0'; cleanup(); };
+    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
+    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
+    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, 9000);
+    s.src = WAURL + '?action=reset&callback=' + cb;
+    document.body.appendChild(s);
+  }
 
   // الكاميرا
   var qr = new Html5Qrcode('reader'), camOn = false;

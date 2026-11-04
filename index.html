@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>جرد المخزون</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#1c1b1b; --card:#262422; --ink:#f4efe9; --muted:#a79e93;
+    --accent:#e07a3a; --clay:#bf5a3f; --ok:#1e7e34; --bad:#b02a37; --dup:#a9830d;
+    --line:#38342f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"Segoe UI",Arial,sans-serif;
+    min-height:100vh;padding:14px 14px 28px;max-width:520px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .brand{font-weight:800;letter-spacing:.5px;font-size:18px}
+  .brand span{color:var(--accent)}
+  .count{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-weight:800}
+  .count b{color:var(--accent);font-size:19px}
+  #reader{width:100%;border-radius:16px;overflow:hidden;background:#000;border:1px solid var(--line)}
+  #reader video{border-radius:16px}
+  .res{margin-top:12px;padding:16px;border-radius:16px;font-weight:800;font-size:18px;line-height:1.5;
+    background:var(--card);border:1px solid var(--line);min-height:30px;text-align:center;transition:background .15s}
+  .res.ok{background:var(--ok);border-color:var(--ok)}
+  .res.bad{background:var(--bad);border-color:var(--bad)}
+  .res.dup{background:var(--dup);border-color:var(--dup)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px;font-weight:500}
+  .row{display:flex;gap:8px;margin-top:12px}
+  input[type=text],input[type=url]{flex:1;background:var(--card);border:1px solid var(--line);color:var(--ink);
+    border-radius:12px;padding:12px 14px;font-size:16px;outline:none;font-family:inherit}
+  input:focus{border-color:var(--accent)}
+  button{background:var(--accent);color:#1a1a1a;border:0;border-radius:12px;padding:12px 16px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  details{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+  summary{cursor:pointer;font-weight:700;color:var(--muted)}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+  .log{margin-top:12px;font-size:13px;color:var(--muted);max-height:34vh;overflow:auto}
+  .log div{padding:6px 2px;border-bottom:1px solid var(--line)}
+  .log .t-ok{color:#7fd79a}.log .t-dup{color:#e7c35a}.log .t-bad{color:#e88}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">A'<span>S</span> STORE · جرد</div>
+    <div class="count">مسحت <b id="cnt">0</b></div>
+  </header>
+
+  <button id="startBtn" style="width:100%;padding:16px;font-size:17px;margin-bottom:10px" onclick="startCam()">📷 تشغيل الكاميرا</button>
+  <div id="reader"></div>
+  <div id="res" class="res">اضغط "تشغيل الكاميرا" أو اكتب السيريال يدوي…<div class="sub" id="sub"></div></div>
+
+  <div class="row">
+    <input id="manual" type="text" inputmode="latin" placeholder="أو اكتب السيريال يدوي…">
+    <button onclick="submitManual()">تحقّق</button>
+  </div>
+
+  <details id="cfg">
+    <summary>⚙️ الإعداد (مرة وحدة)</summary>
+    <label>رابط الـ Web App من Apps Script (ينتهي بـ /exec)</label>
+    <input id="url" type="url" placeholder="https://script.google.com/macros/s/XXXX/exec">
+    <div class="row">
+      <button onclick="saveUrl()">حفظ الرابط</button>
+      <button class="ghost" onclick="resetCam()">إعادة تشغيل الكاميرا</button>
+    </div>
+    <div class="hint">انشر السكربت: Deploy → Web app → Who has access: <b>Anyone</b> → انسخ الرابط والصقه هنا.</div>
+  </details>
+
+  <div class="log" id="log"></div>
+
+<script>
+  var WAURL = localStorage.getItem('as_waurl') || 'https://script.google.com/macros/s/AKfycbxntRDSkZn4dzo3l47nmq038GfligqFAOR65YPeL2MQtU1aumv-K-ycYFh4hj-fFGku/exec';
+  localStorage.setItem('as_waurl', WAURL);
+  var cnt = 0, last = '', lastT = 0, busy = false;
+  var resEl = document.getElementById('res'), subEl = document.getElementById('sub');
+
+  if (WAURL) { document.getElementById('url').value = WAURL; }
+  else { document.getElementById('cfg').open = true; subEl.textContent = 'الصق رابط الـ Web App بالإعداد أولاً'; }
+
+  function saveUrl(){
+    var v = document.getElementById('url').value.trim();
+    if(!/\/exec$/.test(v)){ alert('الرابط لازم ينتهي بـ /exec'); return; }
+    WAURL = v; localStorage.setItem('as_waurl', v);
+    document.getElementById('cfg').open = false;
+    setRes('تم حفظ الرابط ✓ — ابدأ المسح', '');
+  }
+
+  function setRes(text, cls, sub){
+    resEl.className = 'res' + (cls ? ' ' + cls : '');
+    resEl.firstChild.nodeValue = text;
+    subEl.textContent = sub || '';
+  }
+  function logLine(text, cls){
+    var d = document.createElement('div'); d.className = 't-'+cls; d.textContent = text;
+    var L = document.getElementById('log'); L.insertBefore(d, L.firstChild);
+  }
+
+  function jsonp(serial){
+    return new Promise(function(resolve){
+      if(!WAURL){ resolve({text:'ما في رابط — افتح الإعداد', cls:'bad'}); return; }
+      var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
+      var s = document.createElement('script');
+      var done = false;
+      window[cb] = function(r){ done=true; resolve(r); cleanup(); };
+      function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
+      s.onerror = function(){ if(!done){ resolve({text:'فشل الاتصال بالسكربت', cls:'bad'}); cleanup(); } };
+      setTimeout(function(){ if(!done){ resolve({text:'انتهى الوقت — تأكد الرابط Anyone', cls:'bad'}); cleanup(); } }, 9000);
+      s.src = WAURL + '?serial=' + encodeURIComponent(serial) + '&callback=' + cb;
+      document.body.appendChild(s);
+    });
+  }
+
+  function handle(serial){
+    serial = (serial||'').trim(); if(!serial) return;
+    var now = Date.now();
+    if(serial === last && now - lastT < 2500) return;
+    last = serial; lastT = now;
+    if(busy) return; busy = true;
+    setRes('… جاري التحقق', '', serial);
+    jsonp(serial).then(function(r){
+      setRes(r.text, r.cls);
+      if(r.cls === 'ok'){ cnt++; document.getElementById('cnt').textContent = cnt;
+        if(navigator.vibrate) navigator.vibrate(120); logLine(r.text, 'ok'); }
+      else if(r.cls === 'dup'){ if(navigator.vibrate) navigator.vibrate([60,40,60]); logLine(r.text, 'dup'); }
+      else { logLine(r.text, 'bad'); }
+      busy = false;
+    });
+  }
+
+  function submitManual(){
+    var m = document.getElementById('manual');
+    handle(m.value); m.value=''; m.focus();
+  }
+  document.getElementById('manual').addEventListener('keydown', function(e){ if(e.key==='Enter') submitManual(); });
+
+  // الكاميرا
+  var qr = new Html5Qrcode('reader'), camOn = false;
+  function startCam(){
+    document.getElementById('startBtn').style.display='none';
+    qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 240 } },
+      function(txt){ handle(txt); })
+    .then(function(){ camOn = true; setRes('وجّه الكاميرا على باركود الجهاز…',''); })
+    .catch(function(e){
+      document.getElementById('startBtn').style.display='block';
+      setRes('الكاميرا محجوبة هنا — افتح الصفحة بمتصفح كامل أو استعمل الكتابة اليدوية', 'bad', String(e));
+    });
+  }
+  function resetCam(){ if(camOn){ qr.stop().then(startCam).catch(startCam);} else startCam(); }
+</script>
+</body>
+</html>

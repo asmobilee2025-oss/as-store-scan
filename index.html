@@ -174,9 +174,27 @@
   var qr = new Html5Qrcode('reader'), camOn = false;
   function startCam(){
     document.getElementById('startBtn').style.display='none';
-    qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 240 } },
+    qr.start({ facingMode: 'environment' }, {
+        fps: 10,
+        qrbox: function(vw, vh){ var w = Math.min(300, vw - 24); return { width: w, height: Math.round(w * 0.6) }; },
+        aspectRatio: 1.0,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.DATA_MATRIX
+        ]
+      },
       function(txt){ handle(txt); })
-    .then(function(){ camOn = true; setRes('وجّه الكاميرا على باركود الجهاز…',''); })
+    .then(function(){ camOn = true; setRes('وجّه الكاميرا على الـ QR أو الباركود…',''); })
     .catch(function(e){
       document.getElementById('startBtn').style.display='block';
       setRes('الكاميرا محجوبة هنا — افتح الصفحة بمتصفح كامل أو استعمل الكتابة اليدوية', 'bad', String(e));

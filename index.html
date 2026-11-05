@@ -82,7 +82,7 @@
 <script>
   var WAURL = localStorage.getItem('as_waurl') || 'https://script.google.com/macros/s/AKfycbxntRDSkZn4dzo3l47nmq038GfligqFAOR65YPeL2MQtU1aumv-K-ycYFh4hj-fFGku/exec';
   localStorage.setItem('as_waurl', WAURL);
-  var cnt = 0, last = '', lastT = 0, busy = false;
+  var cnt = 0, last = '', lastT = 0, queue = [], pumping = false, seen = {}, okCount = 0, _ac;
   var resEl = document.getElementById('res'), subEl = document.getElementById('sub');
 
   if (WAURL) { document.getElementById('url').value = WAURL; }
@@ -121,20 +121,45 @@
     });
   }
 
+  // طنّة سريعة للفيدباك وأنت تمسح بسرعة بدون ما تبصّ عالشاشة
+  function beep(){
+    try{
+      _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+      if(_ac.state === 'suspended') _ac.resume();
+      var o = _ac.createOscillator(), g = _ac.createGain();
+      o.connect(g); g.connect(_ac.destination);
+      o.frequency.value = 880; g.gain.value = 0.06;
+      o.start(); setTimeout(function(){ try{o.stop();}catch(e){} }, 85);
+    }catch(e){}
+  }
+
+  // المسح: فوري — يعدّ ويطنّ ويحطّه بالطابور، بدون ما يستنى رد السيرفر
   function handle(serial){
     serial = (serial||'').trim(); if(!serial) return;
     var now = Date.now();
-    if(serial === last && now - lastT < 2500) return;
+    if(serial === last && now - lastT < 1500) return;   // نفس الكود المكرر بسرعة
     last = serial; lastT = now;
-    if(busy) return; busy = true;
-    setRes('… جاري التحقق', '', serial);
-    jsonp(serial).then(function(r){
-      setRes(r.text, r.cls);
-      if(r.cls === 'ok'){ cnt++; document.getElementById('cnt').textContent = cnt;
-        if(navigator.vibrate) navigator.vibrate(120); logLine(r.text, 'ok'); }
-      else if(r.cls === 'dup'){ if(navigator.vibrate) navigator.vibrate([60,40,60]); logLine(r.text, 'dup'); }
-      else { logLine(r.text, 'bad'); }
-      busy = false;
+    if(seen[serial]){ setRes('↻ مَسحته قبل: ' + serial, 'dup'); return; }  // ما نبعته مرتين
+    seen[serial] = true;
+    cnt++; document.getElementById('cnt').textContent = cnt;   // عدّ فوري
+    beep(); if(navigator.vibrate) navigator.vibrate(80);       // فيدباك فوري
+    enqueue(serial);
+    setRes('📤 ' + serial, '', 'بالطابور: ' + queue.length + ' · تأكّد: ' + okCount);
+  }
+
+  // الطابور: يبعت واحد واحد بالخلفية عشان ما يزنّق سيرفر جوجل — والمسح يضل فوري
+  function enqueue(serial){ queue.push(serial); pump(); }
+  function pump(){
+    if(pumping) return;
+    var next = queue.shift();
+    if(next === undefined){ pumping = false; return; }
+    pumping = true;
+    jsonp(next).then(function(r){
+      if(r.cls === 'ok'){ okCount++; logLine(r.text, 'ok'); }
+      else if(r.cls === 'dup'){ logLine(r.text, 'dup'); }
+      else { logLine('⚠️ ' + r.text, 'bad'); delete seen[next]; }  // فشل/مش موجود → اسمح تعيد مسحه
+      subEl.textContent = 'بالطابور: ' + queue.length + ' · تأكّد: ' + okCount;
+      pumping = false; pump();
     });
   }
 
@@ -162,7 +187,7 @@
     if(!WAURL){ setRes('ما في رابط — افتح الإعداد', 'bad'); return; }
     var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
     var s = document.createElement('script'); var done = false;
-    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); cnt=0; document.getElementById('cnt').textContent='0'; cleanup(); };
+    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); cnt=0; okCount=0; seen={}; queue=[]; last=''; document.getElementById('cnt').textContent='0'; cleanup(); };
     function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
     s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
     setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, 9000);

@@ -242,9 +242,9 @@
     usingNative = false;
     if(!qr) qr = new Html5Qrcode('reader');
     qr.start({ facingMode: 'environment' }, {
-        fps: 10,
-        qrbox: function(vw, vh){ var w = Math.min(320, vw - 20); return { width: w, height: Math.round(w * 0.65) }; },
-        aspectRatio: 1.0,
+        fps: 15,
+        // نافذة عريضة وكبيرة عشان التمرير يمسك الستيكر من غير تصويب دقيق
+        qrbox: function(vw, vh){ return { width: Math.round(vw * 0.92), height: Math.round(vh * 0.55) }; },
         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
         formatsToSupport: [
           Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128,

@@ -139,7 +139,7 @@
     var now = Date.now();
     if(serial === last && now - lastT < 1500) return;   // نفس الكود المكرر بسرعة
     last = serial; lastT = now;
-    if(seen[serial]){ setRes('↻ مَسحته قبل: ' + serial, 'dup'); return; }  // ما نبعته مرتين
+    if(seen[serial]){ return; }  // مَسحته قبل بنفس الجلسة — تجاهل بصمت (عشان المسح الجماعي)
     seen[serial] = true;
     cnt++; document.getElementById('cnt').textContent = cnt;   // عدّ فوري
     beep(); if(navigator.vibrate) navigator.vibrate(80);       // فيدباك فوري
@@ -195,37 +195,86 @@
     document.body.appendChild(s);
   }
 
-  // الكاميرا
-  var qr = new Html5Qrcode('reader'), camOn = false;
+  // ====== الكاميرا ======
+  // الوضع الأول (الأسرع): BarcodeDetector الأصلي — بيقرا كذا ستيكر بنفس اللقطة (أندرويد/كروم).
+  // لو مش مدعوم (آيفون غالباً) → يرجع لـ html5-qrcode (ستيكر واحد كل مرة).
+  var qr = null, camOn = false, usingNative = false;
+  var nStream = null, nDet = null, nVideo = null, nTimer = null;
+  var FORMATS = ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','itf','codabar','qr_code','data_matrix'];
+
   function startCam(){
-    document.getElementById('startBtn').style.display='none';
+    document.getElementById('startBtn').style.display = 'none';
+    if('BarcodeDetector' in window){ startNative(); } else { startQr(); }
+  }
+
+  function startNative(){
+    try{ nDet = new window.BarcodeDetector({ formats: FORMATS }); }
+    catch(e){ startQr(); return; }
+    navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} } })
+    .then(function(stream){
+      nStream = stream;
+      var r = document.getElementById('reader'); r.innerHTML = '';
+      nVideo = document.createElement('video');
+      nVideo.setAttribute('playsinline',''); nVideo.muted = true;
+      nVideo.style.width = '100%'; nVideo.style.borderRadius = '16px'; nVideo.style.display = 'block';
+      r.appendChild(nVideo);
+      nVideo.srcObject = stream;
+      return nVideo.play();
+    })
+    .then(function(){
+      usingNative = true; camOn = true;
+      setRes('📷 مرّر الكاميرا فوق الأجهزة — بيقرا كذا ستيكر مرة وحدة', '');
+      tickNative();
+    })
+    .catch(function(e){ startQr(); });
+  }
+
+  function tickNative(){
+    if(!usingNative){ return; }
+    nDet.detect(nVideo).then(function(codes){
+      for(var i=0;i<codes.length;i++){ handle(codes[i].rawValue); }
+    }).catch(function(){}).then(function(){
+      nTimer = setTimeout(tickNative, 180);   // ~5 لقطات بالثانية
+    });
+  }
+
+  function startQr(){
+    usingNative = false;
+    if(!qr) qr = new Html5Qrcode('reader');
     qr.start({ facingMode: 'environment' }, {
         fps: 10,
-        qrbox: function(vw, vh){ var w = Math.min(300, vw - 24); return { width: w, height: Math.round(w * 0.6) }; },
+        qrbox: function(vw, vh){ var w = Math.min(320, vw - 20); return { width: w, height: Math.round(w * 0.65) }; },
         aspectRatio: 1.0,
         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
         formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.CODE_93,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.CODABAR,
           Html5QrcodeSupportedFormats.DATA_MATRIX
         ]
       },
       function(txt){ handle(txt); })
-    .then(function(){ camOn = true; setRes('وجّه الكاميرا على الـ QR أو الباركود…',''); })
+    .then(function(){ camOn = true; setRes('📷 وجّه الكاميرا على الستيكر — واحد كل مرة','',''); })
     .catch(function(e){
-      document.getElementById('startBtn').style.display='block';
+      document.getElementById('startBtn').style.display = 'block';
       setRes('الكاميرا محجوبة هنا — افتح الصفحة بمتصفح كامل أو استعمل الكتابة اليدوية', 'bad', String(e));
     });
   }
-  function resetCam(){ if(camOn){ qr.stop().then(startCam).catch(startCam);} else startCam(); }
+
+  function stopCam(){
+    camOn = false;
+    if(usingNative){
+      usingNative = false;
+      if(nTimer){ clearTimeout(nTimer); nTimer = null; }
+      if(nStream){ nStream.getTracks().forEach(function(t){ t.stop(); }); nStream = null; }
+      return Promise.resolve();
+    }
+    if(qr){ return qr.stop().catch(function(){}); }
+    return Promise.resolve();
+  }
+  function resetCam(){ stopCam().then(startCam); }
 </script>
 </body>
 </html>

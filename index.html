@@ -58,6 +58,10 @@
     <button onclick="submitManual()">تحقّق</button>
   </div>
 
+  <div class="row">
+    <button style="flex:1" onclick="doFinish()">📋 إنهاء الجرد وإرسال الناقص للتطبيق</button>
+  </div>
+
   <div class="row" id="resetRow">
     <button class="ghost" style="flex:1" onclick="askReset()">♻️ تصفير الجرد</button>
   </div>
@@ -80,8 +84,9 @@
   <div class="log" id="log"></div>
 
 <script>
-  var WAURL = localStorage.getItem('as_waurl') || 'https://script.google.com/macros/s/AKfycbxntRDSkZn4dzo3l47nmq038GfligqFAOR65YPeL2MQtU1aumv-K-ycYFh4hj-fFGku/exec';
-  localStorage.setItem('as_waurl', WAURL);
+  // اترك الفاضي وألصق الرابط من ⚙️ الإعداد بالتلفون، أو حطه هون مباشرة بين علامتي الاقتباس
+  var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwvaVsroOK2BZLj5USyZvKURWrqeEYww4mWaZ2BSRvOYdhdqn17oumYgr63zAZyRDLn/exec';
+  var WAURL = localStorage.getItem('as_waurl2') || DEFAULT_URL;
   var cnt = 0, last = '', lastT = 0, queue = [], pumping = false, seen = {}, okCount = 0, _ac;
   var resEl = document.getElementById('res'), subEl = document.getElementById('sub');
 
@@ -91,7 +96,7 @@
   function saveUrl(){
     var v = document.getElementById('url').value.trim();
     if(!/\/exec$/.test(v)){ alert('الرابط لازم ينتهي بـ /exec'); return; }
-    WAURL = v; localStorage.setItem('as_waurl', v);
+    WAURL = v; localStorage.setItem('as_waurl2', v);
     document.getElementById('cfg').open = false;
     setRes('تم حفظ الرابط ✓ — ابدأ المسح', '');
   }
@@ -169,11 +174,33 @@
   }
   document.getElementById('manual').addEventListener('keydown', function(e){ if(e.key==='Enter') submitManual(); });
 
+  // طلب عام للسكربت (إنهاء / تصفير)
+  function callAction(action, waitText, timeoutMs, onDone){
+    if(!WAURL){ setRes('ما في رابط — افتح الإعداد', 'bad'); return; }
+    setRes(waitText, '');
+    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
+    var s = document.createElement('script'); var done = false;
+    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
+    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); if(onDone) onDone(r); cleanup(); };
+    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
+    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, timeoutMs);
+    s.src = WAURL + '?action=' + action + '&callback=' + cb;
+    document.body.appendChild(s);
+  }
+
+  // إنهاء الجرد وإرسال الناقص للتطبيق
+  function doFinish(){
+    if(pumping || queue.length){ setRes('استنى الطابور يخلص (' + queue.length + ')', 'dup'); return; }
+    if(!okCount){ setRes('ما في أجهزة ممسوحة — امسح أولاً', 'bad'); return; }
+    if(!confirm('أنهي الجرد وأرسل كل جهاز ما انمسح للتطبيق؟')) return;
+    callAction('finish', '… جاري الإرسال', 25000);
+  }
+
   // تصفير الجرد بتأكيد بضغطتين
   function askReset(){
     document.getElementById('resetRow').style.display='none';
     document.getElementById('confirmRow').style.display='flex';
-    setRes('متأكد تصفّر كل علامات الجرد؟', 'dup', 'بتتمسح كل ✅ من الشيت');
+    setRes('متأكد تصفّر الجرد؟', 'dup', 'بتتمسح الأجهزة الممسوحة وقائمة الناقص');
   }
   function cancelReset(){
     document.getElementById('confirmRow').style.display='none';
@@ -183,16 +210,10 @@
   function doReset(){
     document.getElementById('confirmRow').style.display='none';
     document.getElementById('resetRow').style.display='flex';
-    setRes('… جاري التصفير', '');
-    if(!WAURL){ setRes('ما في رابط — افتح الإعداد', 'bad'); return; }
-    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
-    var s = document.createElement('script'); var done = false;
-    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); cnt=0; okCount=0; seen={}; queue=[]; last=''; document.getElementById('cnt').textContent='0'; cleanup(); };
-    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
-    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
-    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, 9000);
-    s.src = WAURL + '?action=reset&callback=' + cb;
-    document.body.appendChild(s);
+    callAction('reset', '… جاري التصفير', 20000, function(){
+      cnt=0; okCount=0; seen={}; queue=[]; last='';
+      document.getElementById('cnt').textContent='0';
+    });
   }
 
   // ====== الكاميرا ======

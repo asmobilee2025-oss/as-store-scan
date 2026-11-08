@@ -49,6 +49,11 @@
     <div class="count">مسحت <b id="cnt">0</b></div>
   </header>
 
+  <div class="row" id="sessRow">
+    <button id="sMorning" style="flex:1" onclick="setSession('Morning')">☀️ جرد صباحي</button>
+    <button id="sEvening" class="ghost" style="flex:1" onclick="setSession('Evening')">🌙 جرد مسائي</button>
+  </div>
+
   <button id="startBtn" style="width:100%;padding:16px;font-size:17px;margin-bottom:10px" onclick="startCam()">📷 تشغيل الكاميرا</button>
   <div id="reader"></div>
   <div id="res" class="res">اضغط "تشغيل الكاميرا" أو اكتب السيريال يدوي…<div class="sub" id="sub"></div></div>
@@ -89,6 +94,15 @@
   var WAURL = localStorage.getItem('as_waurl2') || DEFAULT_URL;
   var cnt = 0, last = '', lastT = 0, queue = [], pumping = false, seen = {}, okCount = 0, _ac;
   var resEl = document.getElementById('res'), subEl = document.getElementById('sub');
+
+  // جلسة الجرد: صباحي / مسائي
+  var SESSION = localStorage.getItem('as_session') || 'Morning';
+  function setSession(s){
+    SESSION = s; localStorage.setItem('as_session', s);
+    var m=document.getElementById('sMorning'), e=document.getElementById('sEvening');
+    if(s==='Evening'){ e.className=''; m.className='ghost'; } else { m.className=''; e.className='ghost'; }
+    setRes('الجلسة: '+(s==='Evening'?'🌙 مسائي':'☀️ صباحي'), '');
+  }
 
   if (WAURL) { document.getElementById('url').value = WAURL; }
   else { document.getElementById('cfg').open = true; subEl.textContent = 'الصق رابط الـ Web App بالإعداد أولاً'; }
@@ -188,13 +202,35 @@
     document.body.appendChild(s);
   }
 
-  // إنهاء الجرد وإرسال الناقص للتطبيق
+  // إنهاء الجرد (صباحي/مسائي). لو ناقص → يطلب سبب ويبعته للموافقة.
   function doFinish(){
     if(pumping || queue.length){ setRes('استنى الطابور يخلص (' + queue.length + ')', 'dup'); return; }
     if(!okCount){ setRes('ما في أجهزة ممسوحة — امسح أولاً', 'bad'); return; }
-    if(!confirm('أنهي الجرد وأرسل كل جهاز ما انمسح للتطبيق؟')) return;
-    callAction('finish', '… جاري الإرسال', 25000);
+    var lbl = (SESSION==='Evening'?'المسائي':'الصباحي');
+    if(!confirm('أنهي الجرد '+lbl+'؟')) return;
+    finishWith(SESSION, '');
   }
+  function finishWith(sess, reason){
+    setRes('… جاري إنهاء الجرد '+(sess==='Evening'?'المسائي':'الصباحي'), '');
+    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
+    var s = document.createElement('script'); var done = false;
+    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
+    window[cb] = function(r){
+      done = true; cleanup();
+      if(r && r.missing > 0 && !reason){
+        var why = prompt('الجرد ناقص '+r.missing+' جهاز.\nاكتب سبب النقص (إلزامي للموافقة):');
+        if(why && why.trim()){ finishWith(sess, why.trim()); return; }
+        setRes('⚠️ لازم تكتب سبب للنقص عشان يروح لموافقة المسؤول', 'bad'); return;
+      }
+      setRes(r.text, r.cls||'ok');
+    };
+    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
+    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, 25000);
+    s.src = WAURL + '?action=finish&session=' + encodeURIComponent(sess)
+          + (reason ? '&reason=' + encodeURIComponent(reason) : '') + '&callback=' + cb;
+    document.body.appendChild(s);
+  }
+  setSession(SESSION);  // ظلّل زر الجلسة المحفوظة
 
   // تصفير الجرد بتأكيد بضغطتين
   function askReset(){

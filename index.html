@@ -41,6 +41,12 @@
   .log{margin-top:12px;font-size:13px;color:var(--muted);max-height:34vh;overflow:auto}
   .log div{padding:6px 2px;border-bottom:1px solid var(--line)}
   .log .t-ok{color:#7fd79a}.log .t-dup{color:#e7c35a}.log .t-bad{color:#e88}
+  .preview-panel{display:none;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .preview-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-weight:800}
+  .missing-item{padding:10px 2px;border-bottom:1px solid var(--line);line-height:1.6}
+  .missing-item:last-child{border-bottom:0}
+  .missing-serial{font-weight:800;color:var(--accent);direction:ltr;text-align:right;overflow-wrap:anywhere}
+  .missing-meta{font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -63,6 +69,16 @@
     <button onclick="submitManual()">تحقّق</button>
   </div>
 
+  <div class="row">
+    <button class="ghost" style="flex:1" onclick="previewMissing()">🔎 معاينة الأجهزة غير الممسوحة</button>
+  </div>
+  <div id="missingPanel" class="preview-panel">
+    <div class="preview-head">
+      <span id="missingTitle">الأجهزة غير الممسوحة</span>
+      <button class="ghost" style="padding:7px 10px;font-size:13px" onclick="hideMissing()">إغلاق</button>
+    </div>
+    <div id="missingList"></div>
+  </div>
   <div class="row">
     <button style="flex:1" onclick="doFinish()">📋 إنهاء الجرد وإرسال الناقص للتطبيق</button>
   </div>
@@ -200,6 +216,62 @@
     setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, timeoutMs);
     s.src = WAURL + '?action=' + action + '&callback=' + cb;
     document.body.appendChild(s);
+  }
+
+  // معاينة الأجهزة غير الممسوحة بدون إنهاء الجرد أو تغيير أي سكانات
+  function previewMissing(){
+    if(pumping || queue.length){
+      setRes('استنى الطابور يخلص قبل المعاينة (' + queue.length + ')', 'dup');
+      return;
+    }
+    callAction('preview', '… جاري تحميل الأجهزة غير الممسوحة', 20000, function(r){
+      showMissing(r);
+    });
+  }
+
+  function showMissing(r){
+    var panel = document.getElementById('missingPanel');
+    var list = document.getElementById('missingList');
+    var items = (r && Array.isArray(r.items)) ? r.items : [];
+    document.getElementById('missingTitle').textContent =
+      'الأجهزة غير الممسوحة: ' + (r && r.missing != null ? r.missing : items.length);
+    list.innerHTML = '';
+
+    if(!items.length){
+      var empty = document.createElement('div');
+      empty.className = 'missing-item';
+      empty.textContent = 'ممتاز، ما في أجهزة ناقصة حسب القائمة الحالية ✓';
+      list.appendChild(empty);
+    } else {
+      items.forEach(function(item){
+        var card = document.createElement('div');
+        card.className = 'missing-item';
+
+        var serial = document.createElement('div');
+        serial.className = 'missing-serial';
+        serial.textContent = item.serial || 'بدون سيريال';
+
+        var meta = document.createElement('div');
+        meta.className = 'missing-meta';
+        var details = [
+          item.model || 'موديل غير محدد',
+          item.color || 'لون غير محدد',
+          item.storage || 'سعة غير محددة',
+          item.battery ? ('بطارية ' + item.battery) : 'بطارية غير محددة'
+        ];
+        meta.textContent = details.join(' · ');
+
+        card.appendChild(serial);
+        card.appendChild(meta);
+        list.appendChild(card);
+      });
+    }
+    panel.style.display = 'block';
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function hideMissing(){
+    document.getElementById('missingPanel').style.display = 'none';
   }
 
   // إنهاء الجرد (صباحي/مسائي). لو ناقص → يطلب سبب ويبعته للموافقة.

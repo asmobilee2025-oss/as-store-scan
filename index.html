@@ -8,8 +8,7 @@
 <style>
   :root{
     --bg:#1c1b1b; --card:#262422; --ink:#f4efe9; --muted:#a79e93;
-    --accent:#e07a3a; --clay:#bf5a3f; --ok:#1e7e34; --bad:#b02a37; --dup:#a9830d;
-    --line:#38342f;
+    --accent:#e07a3a; --ok:#1e7e34; --bad:#b02a37; --dup:#a9830d; --line:#38342f;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0}
@@ -18,8 +17,10 @@
   header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   .brand{font-weight:800;letter-spacing:.5px;font-size:18px}
   .brand span{color:var(--accent)}
-  .count{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-weight:800}
+  .count{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 12px;font-weight:800;white-space:nowrap}
   .count b{color:var(--accent);font-size:19px}
+  .count small{color:var(--muted);font-weight:600}
+  .banner{display:none;margin-bottom:10px;padding:12px 14px;border-radius:12px;background:var(--bad);font-weight:700;font-size:14px;line-height:1.6}
   #reader{width:100%;border-radius:16px;overflow:hidden;background:#000;border:1px solid var(--line)}
   #reader video{border-radius:16px}
   .res{margin-top:12px;padding:16px;border-radius:16px;font-weight:800;font-size:18px;line-height:1.5;
@@ -28,12 +29,17 @@
   .res.bad{background:var(--bad);border-color:var(--bad)}
   .res.dup{background:var(--dup);border-color:var(--dup)}
   .sub{color:var(--muted);font-size:13px;margin-top:4px;font-weight:500}
+  .res.ok .sub,.res.bad .sub,.res.dup .sub{color:rgba(255,255,255,.85)}
   .row{display:flex;gap:8px;margin-top:12px}
-  input[type=text],input[type=url]{flex:1;background:var(--card);border:1px solid var(--line);color:var(--ink);
+  input[type=text],input[type=url],textarea{flex:1;width:100%;background:var(--card);border:1px solid var(--line);color:var(--ink);
     border-radius:12px;padding:12px 14px;font-size:16px;outline:none;font-family:inherit}
-  input:focus{border-color:var(--accent)}
+  textarea{background:#1f1d1c;min-height:70px;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--accent)}
   button{background:var(--accent);color:#1a1a1a;border:0;border-radius:12px;padding:12px 16px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
+  button:disabled{opacity:.4;cursor:not-allowed}
   button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  button.danger{background:var(--bad);color:#fff}
+  button.go{background:var(--ok);color:#fff}
   details{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
   summary{cursor:pointer;font-weight:700;color:var(--muted)}
   label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
@@ -41,21 +47,31 @@
   .log{margin-top:12px;font-size:13px;color:var(--muted);max-height:34vh;overflow:auto}
   .log div{padding:6px 2px;border-bottom:1px solid var(--line)}
   .log .t-ok{color:#7fd79a}.log .t-dup{color:#e7c35a}.log .t-bad{color:#e88}
-  .preview-panel{display:none;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-  .preview-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-weight:800}
-  .missing-item{padding:10px 2px;border-bottom:1px solid var(--line);line-height:1.6}
-  .missing-item:last-child{border-bottom:0}
-  .missing-serial{font-weight:800;color:var(--accent);direction:ltr;text-align:right;overflow-wrap:anywhere}
-  .missing-meta{font-size:13px;color:var(--muted)}
+
+  /* لوحة المراجعة قبل الإنهاء */
+  .review{display:none;margin-top:12px;background:var(--card);border:1px solid var(--accent);border-radius:16px;padding:14px}
+  .review-head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:17px}
+  .pill{background:var(--bad);color:#fff;border-radius:999px;padding:3px 12px;font-size:15px}
+  .pill.zero{background:var(--ok)}
+  .review .lead{font-size:13px;color:var(--muted);margin:8px 0 6px;line-height:1.6}
+  .mlist{max-height:40vh;overflow:auto;border-top:1px solid var(--line);margin-top:6px}
+  .mi{padding:10px 2px;border-bottom:1px solid var(--line);line-height:1.55;transition:opacity .35s,background .35s}
+  .mi.gone{background:var(--ok);opacity:0}
+  .mi-s{font-weight:800;color:var(--accent);direction:ltr;text-align:right;overflow-wrap:anywhere}
+  .mi-m{font-size:13px;color:var(--muted)}
+  .unk{margin-top:10px;font-size:12px;color:#e88;line-height:1.7;direction:ltr;text-align:right;overflow-wrap:anywhere}
+  .allgood{padding:16px 4px;text-align:center;font-weight:800;color:#7fd79a}
 </style>
 </head>
 <body>
   <header>
     <div class="brand">A'<span>S</span> STORE · جرد</div>
-    <div class="count">مسحت <b id="cnt">0</b></div>
+    <div class="count">مسحت <b id="cnt">0</b><small id="tot"></small></div>
   </header>
 
-  <div class="row" id="sessRow">
+  <div id="banner" class="banner"></div>
+
+  <div class="row" style="margin-top:0;margin-bottom:10px">
     <button id="sMorning" style="flex:1" onclick="setSession('Morning')">☀️ جرد صباحي</button>
     <button id="sEvening" class="ghost" style="flex:1" onclick="setSession('Evening')">🌙 جرد مسائي</button>
   </div>
@@ -65,268 +81,322 @@
   <div id="res" class="res">اضغط "تشغيل الكاميرا" أو اكتب السيريال يدوي…<div class="sub" id="sub"></div></div>
 
   <div class="row">
-    <input id="manual" type="text" inputmode="latin" placeholder="أو اكتب السيريال يدوي…">
+    <input id="manual" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" placeholder="أو اكتب السيريال يدوي…">
     <button onclick="submitManual()">تحقّق</button>
   </div>
 
-  <div class="row">
-    <button class="ghost" style="flex:1" onclick="previewMissing()">🔎 معاينة الأجهزة غير الممسوحة</button>
-  </div>
-  <div id="missingPanel" class="preview-panel">
-    <div class="preview-head">
-      <span id="missingTitle">الأجهزة غير الممسوحة</span>
-      <button class="ghost" style="padding:7px 10px;font-size:13px" onclick="hideMissing()">إغلاق</button>
+  <!-- مراجعة الناقص قبل الإرسال -->
+  <div id="review" class="review">
+    <div class="review-head">
+      <span>الأجهزة الناقصة</span>
+      <span id="rvPill" class="pill">0</span>
     </div>
-    <div id="missingList"></div>
+    <div id="rvLead" class="lead"></div>
+    <div id="rvList" class="mlist"></div>
+    <div id="rvUnk" class="unk"></div>
+
+    <div id="rvReasonBox">
+      <label for="rvReason">سبب النقص (إلزامي لو في ناقص)</label>
+      <textarea id="rvReason" placeholder="مثال: جهازين انباعوا اليوم، جهاز بالصيانة…" oninput="renderReviewControls()"></textarea>
+    </div>
+    <div class="row">
+      <button id="rvSend" class="go" style="flex:2" onclick="sendFinish()">📤 إرسال الجرد للموافقة</button>
+      <button class="ghost" style="flex:1" onclick="refreshReview()">🔄 تحديث</button>
+    </div>
+    <div class="row">
+      <button class="ghost" style="flex:1" onclick="closeReview()">↩︎ رجوع للمسح</button>
+    </div>
   </div>
+
   <div class="row">
-    <button style="flex:1" onclick="doFinish()">📋 إنهاء الجرد وإرسال الناقص للتطبيق</button>
+    <button id="finishBtn" style="flex:1;padding:15px" onclick="openReview()">📋 مراجعة الناقص وإنهاء الجرد</button>
   </div>
 
   <div class="row" id="resetRow">
     <button class="ghost" style="flex:1" onclick="askReset()">♻️ تصفير الجرد</button>
   </div>
   <div class="row" id="confirmRow" style="display:none">
-    <button onclick="doReset()" style="flex:1;background:var(--bad);color:#fff">✓ أكيد، صفّر الكل</button>
+    <button class="danger" style="flex:1" onclick="doReset()">✓ أكيد، صفّر الكل</button>
     <button class="ghost" style="flex:1" onclick="cancelReset()">✗ تراجع</button>
   </div>
 
   <details id="cfg">
-    <summary>⚙️ الإعداد (مرة وحدة)</summary>
-    <label>رابط الـ Web App من Apps Script (ينتهي بـ /exec)</label>
+    <summary>⚙️ الإعداد</summary>
+    <label>رابط الـ Web App (ينتهي بـ /exec)</label>
     <input id="url" type="url" placeholder="https://script.google.com/macros/s/XXXX/exec">
     <div class="row">
       <button onclick="saveUrl()">حفظ الرابط</button>
       <button class="ghost" onclick="resetCam()">إعادة تشغيل الكاميرا</button>
     </div>
-    <div class="hint">انشر السكربت: Deploy → Web app → Who has access: <b>Anyone</b> → انسخ الرابط والصقه هنا.</div>
+    <div class="hint" id="verHint"></div>
   </details>
 
   <div class="log" id="log"></div>
 
 <script>
-  // اترك الفاضي وألصق الرابط من ⚙️ الإعداد بالتلفون، أو حطه هون مباشرة بين علامتي الاقتباس
+  /* ====== الإعداد ====== */
+  // نفس رابط مشروعك — ما بيتغيّر لما تنشر New version.
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwvaVsroOK2BZLj5USyZvKURWrqeEYww4mWaZ2BSRvOYdhdqn17oumYgr63zAZyRDLn/exec';
-  var WAURL = localStorage.getItem('as_waurl2') || DEFAULT_URL;
-  var cnt = 0, last = '', lastT = 0, queue = [], pumping = false, seen = {}, okCount = 0, _ac;
+  var API_VERSION = 'inv-v3';
+  var URL_KEY = 'as_waurl3';
+
+  function ls(k, v){ try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
+  try{ localStorage.removeItem('as_waurl2'); }catch(e){}
+
+  var WAURL = ls(URL_KEY) || (/\/exec$/.test(DEFAULT_URL) ? DEFAULT_URL : '');
+  var SESSION = ls('as_session') || 'Morning';
+
+  var confirmed = 0, total = 0, last = '', lastT = 0, queue = [], pumping = false, seen = {}, _ac;
+  var reviewOpen = false, reviewMissing = 0, sending = false;
   var resEl = document.getElementById('res'), subEl = document.getElementById('sub');
 
-  // جلسة الجرد: صباحي / مسائي
-  var SESSION = localStorage.getItem('as_session') || 'Morning';
-  function setSession(s){
-    SESSION = s; localStorage.setItem('as_session', s);
-    var m=document.getElementById('sMorning'), e=document.getElementById('sEvening');
-    if(s==='Evening'){ e.className=''; m.className='ghost'; } else { m.className=''; e.className='ghost'; }
-    setRes('الجلسة: '+(s==='Evening'?'🌙 مسائي':'☀️ صباحي'), '');
-  }
-
-  if (WAURL) { document.getElementById('url').value = WAURL; }
-  else { document.getElementById('cfg').open = true; subEl.textContent = 'الصق رابط الـ Web App بالإعداد أولاً'; }
-
-  function saveUrl(){
-    var v = document.getElementById('url').value.trim();
-    if(!/\/exec$/.test(v)){ alert('الرابط لازم ينتهي بـ /exec'); return; }
-    WAURL = v; localStorage.setItem('as_waurl2', v);
-    document.getElementById('cfg').open = false;
-    setRes('تم حفظ الرابط ✓ — ابدأ المسح', '');
-  }
-
+  /* ====== UI helpers ====== */
   function setRes(text, cls, sub){
     resEl.className = 'res' + (cls ? ' ' + cls : '');
     resEl.firstChild.nodeValue = text;
     subEl.textContent = sub || '';
   }
   function logLine(text, cls){
-    var d = document.createElement('div'); d.className = 't-'+cls; d.textContent = text;
+    var d = document.createElement('div'); d.className = 't-' + cls; d.textContent = text;
     var L = document.getElementById('log'); L.insertBefore(d, L.firstChild);
   }
+  function banner(msg){
+    var b = document.getElementById('banner');
+    b.textContent = msg || ''; b.style.display = msg ? 'block' : 'none';
+  }
+  function updCount(){
+    document.getElementById('cnt').textContent = confirmed;
+    document.getElementById('tot').textContent = total ? (' / ' + total) : '';
+  }
+  function queueNote(){ return queue.length ? ('بالطابور: ' + queue.length) : ''; }
 
-  function jsonp(serial){
+  function setSession(s){
+    SESSION = s; ls('as_session', s);
+    document.getElementById('sMorning').className = s === 'Morning' ? '' : 'ghost';
+    document.getElementById('sEvening').className = s === 'Evening' ? '' : 'ghost';
+  }
+
+  function saveUrl(){
+    var v = document.getElementById('url').value.trim();
+    if(!/\/exec$/.test(v)){ setRes('الرابط لازم ينتهي بـ /exec', 'bad'); return; }
+    WAURL = v; ls(URL_KEY, v);
+    document.getElementById('cfg').open = false;
+    checkStatus();
+  }
+
+  /* ====== اتصال السكربت (JSONP) ====== */
+  function api(params, timeoutMs){
     return new Promise(function(resolve){
-      if(!WAURL){ resolve({text:'ما في رابط — افتح الإعداد', cls:'bad'}); return; }
-      var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
-      var s = document.createElement('script');
-      var done = false;
-      window[cb] = function(r){ done=true; resolve(r); cleanup(); };
-      function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
-      s.onerror = function(){ if(!done){ resolve({text:'فشل الاتصال بالسكربت', cls:'bad'}); cleanup(); } };
-      setTimeout(function(){ if(!done){ resolve({text:'انتهى الوقت — تأكد الرابط Anyone', cls:'bad'}); cleanup(); } }, 9000);
-      s.src = WAURL + '?serial=' + encodeURIComponent(serial) + '&callback=' + cb;
+      if(!WAURL){ resolve({cls:'bad', text:'ما في رابط — افتح ⚙️ الإعداد', net:true}); return; }
+      var cb = 'cb' + Date.now() + Math.floor(Math.random()*1e6);
+      var s = document.createElement('script'), done = false;
+      function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb] = undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
+      window[cb] = function(r){ if(done) return; done = true; cleanup(); resolve(r || {cls:'bad', text:'رد فاضي'}); };
+      s.onerror = function(){ if(!done){ done = true; cleanup(); resolve({cls:'bad', text:'فشل الاتصال بالسكربت', net:true}); } };
+      setTimeout(function(){ if(!done){ done = true; window[cb] = function(){}; if(s.parentNode) s.parentNode.removeChild(s);
+        resolve({cls:'bad', text:'انتهى الوقت — النت ضعيف أو الرابط مش Anyone', net:true}); } }, timeoutMs || 15000);
+      var q = Object.keys(params).map(function(k){ return k + '=' + encodeURIComponent(params[k]); }).join('&');
+      s.src = WAURL + (WAURL.indexOf('?') < 0 ? '?' : '&') + q + '&callback=' + cb + '&_=' + Date.now();
       document.body.appendChild(s);
     });
   }
 
-  // طنّة سريعة للفيدباك وأنت تمسح بسرعة بدون ما تبصّ عالشاشة
-  function beep(){
+  function verOk(r){
+    if(r && r.version === API_VERSION){ banner(''); return true; }
+    if(r && !r.net) banner('⚠️ الرابط المحفوظ لسكربت قديم — الجرد ما رح يوصل للتطبيق. افتح ⚙️ الإعداد والصق رابط /exec الجديد.');
+    return false;
+  }
+
+  function checkStatus(){
+    if(!WAURL){
+      document.getElementById('cfg').open = true;
+      banner('⚠️ ما في رابط سكربت — افتح ⚙️ الإعداد والصق رابط /exec');
+      return;
+    }
+    document.getElementById('url').value = WAURL;
+    api({action:'status'}, 20000).then(function(r){
+      document.getElementById('verHint').textContent = 'إصدار السكربت: ' + (r.version || 'قديم/غير معروف');
+      if(!verOk(r)) { if(r.net) setRes(r.text, 'bad'); return; }
+      confirmed = r.scanned || 0; total = r.total || 0; updCount();
+      setRes(confirmed ? ('مكمّل من حيث وقفت — ممسوح ' + confirmed + ' من ' + total) : 'جاهز — ابدأ المسح', '');
+    });
+  }
+
+  /* ====== المسح ====== */
+  function beep(f){
     try{
       _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
       if(_ac.state === 'suspended') _ac.resume();
       var o = _ac.createOscillator(), g = _ac.createGain();
       o.connect(g); g.connect(_ac.destination);
-      o.frequency.value = 880; g.gain.value = 0.06;
-      o.start(); setTimeout(function(){ try{o.stop();}catch(e){} }, 85);
+      o.frequency.value = f || 880; g.gain.value = 0.06;
+      o.start(); setTimeout(function(){ try{ o.stop(); }catch(e){} }, 85);
     }catch(e){}
   }
 
-  // المسح: فوري — يعدّ ويطنّ ويحطّه بالطابور، بدون ما يستنى رد السيرفر
   function handle(serial){
-    serial = (serial||'').trim(); if(!serial) return;
+    serial = (serial || '').trim(); if(!serial) return;
     var now = Date.now();
-    if(serial === last && now - lastT < 1500) return;   // نفس الكود المكرر بسرعة
+    if(serial === last && now - lastT < 1500) return;
     last = serial; lastT = now;
-    if(seen[serial]){ return; }  // مَسحته قبل بنفس الجلسة — تجاهل بصمت (عشان المسح الجماعي)
+    if(seen[serial]) return;               // انمسح بهالجلسة — تجاهل بصمت (للمسح الجماعي)
     seen[serial] = true;
-    cnt++; document.getElementById('cnt').textContent = cnt;   // عدّ فوري
-    beep(); if(navigator.vibrate) navigator.vibrate(80);       // فيدباك فوري
-    enqueue(serial);
-    setRes('📤 ' + serial, '', 'بالطابور: ' + queue.length + ' · تأكّد: ' + okCount);
+    beep(); if(navigator.vibrate) navigator.vibrate(60);
+    queue.push({s: serial, tries: 0});
+    setRes('📤 ' + serial, '', queueNote());
+    pump();
   }
 
-  // الطابور: يبعت واحد واحد بالخلفية عشان ما يزنّق سيرفر جوجل — والمسح يضل فوري
-  function enqueue(serial){ queue.push(serial); pump(); }
   function pump(){
     if(pumping) return;
-    var next = queue.shift();
-    if(next === undefined){ pumping = false; return; }
+    var job = queue.shift();
+    if(!job){ pumping = false; return; }
     pumping = true;
-    jsonp(next).then(function(r){
-      if(r.cls === 'ok'){ okCount++; logLine(r.text, 'ok'); }
-      else if(r.cls === 'dup'){ logLine(r.text, 'dup'); }
-      else { logLine('⚠️ ' + r.text, 'bad'); delete seen[next]; }  // فشل/مش موجود → اسمح تعيد مسحه
-      subEl.textContent = 'بالطابور: ' + queue.length + ' · تأكّد: ' + okCount;
+    api({serial: job.s}, 15000).then(function(r){
+      if(r.net || r.busy){
+        if(job.tries < 2){ job.tries++; queue.unshift(job); pumping = false; setTimeout(pump, 800); return; }
+        logLine('⚠️ ما انبعت: ' + job.s + ' — امسحه مرة ثانية', 'bad'); delete seen[job.s];
+        setRes('⚠️ ' + job.s + ' ما انبعت', 'bad', 'امسحه مرة ثانية');
+      } else {
+        verOk(r);
+        if(typeof r.scanned === 'number') confirmed = r.scanned;
+        if(r.total) total = r.total;
+        updCount();
+        if(r.cls === 'ok'){ logLine(r.text, 'ok'); setRes(r.text, 'ok', queueNote()); if(reviewOpen) markFound(r.serial); }
+        else if(r.cls === 'dup'){ logLine(r.text, 'dup'); setRes(r.text, 'dup', queueNote()); if(reviewOpen) markFound(r.serial); }
+        else { logLine(r.text, 'bad'); setRes(r.text, 'bad', queueNote()); beep(300); delete seen[job.s]; }
+      }
       pumping = false; pump();
     });
   }
 
   function submitManual(){
     var m = document.getElementById('manual');
-    handle(m.value); m.value=''; m.focus();
+    var v = m.value; m.value = ''; m.focus();
+    if(v.trim()) { seen[v.trim()] = false; handle(v); }
   }
-  document.getElementById('manual').addEventListener('keydown', function(e){ if(e.key==='Enter') submitManual(); });
+  document.getElementById('manual').addEventListener('keydown', function(e){ if(e.key === 'Enter') submitManual(); });
 
-  // طلب عام للسكربت (إنهاء / تصفير)
-  function callAction(action, waitText, timeoutMs, onDone){
-    if(!WAURL){ setRes('ما في رابط — افتح الإعداد', 'bad'); return; }
-    setRes(waitText, '');
-    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
-    var s = document.createElement('script'); var done = false;
-    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
-    window[cb] = function(r){ done=true; setRes(r.text, r.cls||'ok'); if(onDone) onDone(r); cleanup(); };
-    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
-    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, timeoutMs);
-    s.src = WAURL + '?action=' + action + '&callback=' + cb;
-    document.body.appendChild(s);
-  }
-
-  // معاينة الأجهزة غير الممسوحة بدون إنهاء الجرد أو تغيير أي سكانات
-  function previewMissing(){
-    if(pumping || queue.length){
-      setRes('استنى الطابور يخلص قبل المعاينة (' + queue.length + ')', 'dup');
-      return;
-    }
-    callAction('preview', '… جاري تحميل الأجهزة غير الممسوحة', 20000, function(r){
-      showMissing(r);
+  /* ====== مراجعة الناقص + الإنهاء ====== */
+  function waitQueue(){
+    return new Promise(function(resolve){
+      (function chk(){ if(!pumping && !queue.length) resolve(); else setTimeout(chk, 250); })();
     });
   }
 
-  function showMissing(r){
-    var panel = document.getElementById('missingPanel');
-    var list = document.getElementById('missingList');
-    var items = (r && Array.isArray(r.items)) ? r.items : [];
-    document.getElementById('missingTitle').textContent =
-      'الأجهزة غير الممسوحة: ' + (r && r.missing != null ? r.missing : items.length);
-    list.innerHTML = '';
+  function openReview(){
+    var box = document.getElementById('review');
+    box.style.display = 'block'; reviewOpen = true;
+    document.getElementById('finishBtn').style.display = 'none';
+    refreshReview();
+    box.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function closeReview(){
+    document.getElementById('review').style.display = 'none'; reviewOpen = false;
+    document.getElementById('finishBtn').style.display = '';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
 
+  function refreshReview(){
+    document.getElementById('rvLead').textContent = queue.length ? '… بستنى الطابور يخلص (' + queue.length + ')' : '… جاري تحميل الناقص';
+    document.getElementById('rvSend').disabled = true;
+    waitQueue().then(function(){ return api({action:'preview'}, 25000); }).then(function(r){
+      if(r.cls === 'bad' && !r.items){ document.getElementById('rvLead').textContent = r.text; return; }
+      verOk(r); renderReview(r);
+    });
+  }
+
+  function renderReview(r){
+    var items = Array.isArray(r.items) ? r.items : [];
+    if(typeof r.scanned === 'number'){ confirmed = r.scanned; total = r.total || total; updCount(); }
+    var list = document.getElementById('rvList'); list.innerHTML = '';
+    items.forEach(function(it){
+      var d = document.createElement('div'); d.className = 'mi'; d.setAttribute('data-key', it.key || '');
+      var s = document.createElement('div'); s.className = 'mi-s'; s.textContent = it.serial || '—';
+      var m = document.createElement('div'); m.className = 'mi-m';
+      m.textContent = [it.model, it.color, it.storage, it.battery ? ('بطارية ' + it.battery) : '', it.notes]
+        .filter(function(x){ return x; }).join(' · ');
+      d.appendChild(s); d.appendChild(m); list.appendChild(d);
+    });
     if(!items.length){
-      var empty = document.createElement('div');
-      empty.className = 'missing-item';
-      empty.textContent = 'ممتاز، ما في أجهزة ناقصة حسب القائمة الحالية ✓';
-      list.appendChild(empty);
-    } else {
-      items.forEach(function(item){
-        var card = document.createElement('div');
-        card.className = 'missing-item';
-
-        var serial = document.createElement('div');
-        serial.className = 'missing-serial';
-        serial.textContent = item.serial || 'بدون سيريال';
-
-        var meta = document.createElement('div');
-        meta.className = 'missing-meta';
-        var details = [
-          item.model || 'موديل غير محدد',
-          item.color || 'لون غير محدد',
-          item.storage || 'سعة غير محددة',
-          item.battery ? ('بطارية ' + item.battery) : 'بطارية غير محددة'
-        ];
-        meta.textContent = details.join(' · ');
-
-        card.appendChild(serial);
-        card.appendChild(meta);
-        list.appendChild(card);
-      });
+      var g = document.createElement('div'); g.className = 'allgood'; g.textContent = 'كل الأجهزة ممسوحة ✓ (' + confirmed + '/' + total + ')';
+      list.appendChild(g);
     }
-    panel.style.display = 'block';
-    panel.scrollIntoView({behavior:'smooth', block:'start'});
+    var unk = Array.isArray(r.unknown) ? r.unknown : [];
+    document.getElementById('rvUnk').textContent = unk.length ? ('أكواد ممسوحة مش بالقائمة (' + unk.length + '): ' + unk.join(' · ')) : '';
+    reviewMissing = items.length;
+    renderReviewControls();
   }
 
-  function hideMissing(){
-    document.getElementById('missingPanel').style.display = 'none';
+  function renderReviewControls(){
+    var pill = document.getElementById('rvPill');
+    pill.textContent = reviewMissing ? ('ناقص ' + reviewMissing) : '0 ناقص';
+    pill.className = 'pill' + (reviewMissing ? '' : ' zero');
+    document.getElementById('rvLead').textContent = reviewMissing
+      ? 'الكاميرا شغّالة — امسح الأجهزة اللي فوق وبتختفي من القائمة أول ما تنمسح. اللي مش موجود فعلاً اكتب سببه وابعت.'
+      : 'تمام — كل شي ممسوح. اضغط إرسال.';
+    document.getElementById('rvReasonBox').style.display = reviewMissing ? '' : 'none';
+    var reason = document.getElementById('rvReason').value.trim();
+    document.getElementById('rvSend').disabled = sending || (reviewMissing > 0 && !reason);
   }
 
-  // إنهاء الجرد (صباحي/مسائي). لو ناقص → يطلب سبب ويبعته للموافقة.
-  function doFinish(){
-    if(pumping || queue.length){ setRes('استنى الطابور يخلص (' + queue.length + ')', 'dup'); return; }
-    if(!okCount){ setRes('ما في أجهزة ممسوحة — امسح أولاً', 'bad'); return; }
-    var lbl = (SESSION==='Evening'?'المسائي':'الصباحي');
-    if(!confirm('أنهي الجرد '+lbl+'؟')) return;
-    finishWith(SESSION, '');
+  function markFound(key){
+    if(!key) return;
+    var el = document.querySelector('#rvList .mi[data-key="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
+    if(!el || el.classList.contains('gone')) return;
+    el.classList.add('gone');
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el);
+      if(!document.querySelector('#rvList .mi')) renderReview({items:[], unknown:[]}); }, 400);
+    reviewMissing = Math.max(0, reviewMissing - 1);
+    renderReviewControls();
   }
-  function finishWith(sess, reason){
-    setRes('… جاري إنهاء الجرد '+(sess==='Evening'?'المسائي':'الصباحي'), '');
-    var cb = 'cb' + Date.now() + Math.floor(Math.random()*999);
-    var s = document.createElement('script'); var done = false;
-    function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;} if(s.parentNode)s.parentNode.removeChild(s); }
-    window[cb] = function(r){
-      done = true; cleanup();
-      if(r && r.missing > 0 && !reason){
-        var why = prompt('الجرد ناقص '+r.missing+' جهاز.\nاكتب سبب النقص (إلزامي للموافقة):');
-        if(why && why.trim()){ finishWith(sess, why.trim()); return; }
-        setRes('⚠️ لازم تكتب سبب للنقص عشان يروح لموافقة المسؤول', 'bad'); return;
-      }
-      setRes(r.text, r.cls||'ok');
-    };
-    s.onerror = function(){ if(!done){ setRes('فشل الاتصال بالسكربت', 'bad'); cleanup(); } };
-    setTimeout(function(){ if(!done){ setRes('انتهى الوقت — تأكد الرابط Anyone', 'bad'); cleanup(); } }, 25000);
-    s.src = WAURL + '?action=finish&session=' + encodeURIComponent(sess)
-          + (reason ? '&reason=' + encodeURIComponent(reason) : '') + '&callback=' + cb;
-    document.body.appendChild(s);
-  }
-  setSession(SESSION);  // ظلّل زر الجلسة المحفوظة
 
-  // تصفير الجرد بتأكيد بضغطتين
+  function sendFinish(){
+    if(sending) return;
+    var reason = reviewMissing ? document.getElementById('rvReason').value.trim() : '';
+    if(reviewMissing && !reason){ renderReviewControls(); return; }
+    sending = true; renderReviewControls();
+    var lbl = SESSION === 'Evening' ? 'المسائي' : 'الصباحي';
+    setRes('… جاري إرسال الجرد ' + lbl, '');
+    waitQueue().then(function(){
+      var p = {action:'finish', session: SESSION}; if(reason) p.reason = reason;
+      return api(p, 40000);
+    }).then(function(r){
+      sending = false;
+      if(r.needReason){ renderReview(r); setRes(r.text, 'dup', 'اكتب السبب وابعت'); return; }
+      if(!r.done){ renderReviewControls(); setRes(r.text, 'bad', r.version === API_VERSION ? '' : 'تأكد من رابط السكربت'); verOk(r); return; }
+      setRes(r.text, 'ok', r.checkId);
+      logLine('📋 ' + r.text + ' · ' + r.checkId, 'ok');
+      if(r.warnings && r.warnings.length) logLine('ملاحظة: ' + r.warnings.join(' | '), 'dup');
+      document.getElementById('rvReason').value = '';
+      seen = {}; last = ''; confirmed = 0; updCount();
+      closeReview();
+    });
+  }
+
+  /* ====== التصفير ====== */
   function askReset(){
-    document.getElementById('resetRow').style.display='none';
-    document.getElementById('confirmRow').style.display='flex';
-    setRes('متأكد تصفّر الجرد؟', 'dup', 'بتتمسح الأجهزة الممسوحة وقائمة الناقص');
+    document.getElementById('resetRow').style.display = 'none';
+    document.getElementById('confirmRow').style.display = 'flex';
+    setRes('متأكد تصفّر الجرد؟', 'dup', 'بتنمسح كل السكانات وبتبلّش من الصفر');
   }
   function cancelReset(){
-    document.getElementById('confirmRow').style.display='none';
-    document.getElementById('resetRow').style.display='flex';
+    document.getElementById('confirmRow').style.display = 'none';
+    document.getElementById('resetRow').style.display = 'flex';
     setRes('تم الإلغاء — ما صار إشي', '');
   }
   function doReset(){
-    document.getElementById('confirmRow').style.display='none';
-    document.getElementById('resetRow').style.display='flex';
-    callAction('reset', '… جاري التصفير', 20000, function(){
-      cnt=0; okCount=0; seen={}; queue=[]; last='';
-      document.getElementById('cnt').textContent='0';
+    document.getElementById('confirmRow').style.display = 'none';
+    document.getElementById('resetRow').style.display = 'flex';
+    queue = []; setRes('… جاري التصفير', '');
+    waitQueue().then(function(){ return api({action:'reset'}, 20000); }).then(function(r){
+      setRes(r.text, r.cls);
+      if(r.cls === 'ok'){ confirmed = 0; seen = {}; last = ''; updCount(); if(reviewOpen) closeReview(); }
     });
   }
 
-  // ====== الكاميرا ======
-  // الوضع الأول (الأسرع): BarcodeDetector الأصلي — بيقرا كذا ستيكر بنفس اللقطة (أندرويد/كروم).
-  // لو مش مدعوم (آيفون غالباً) → يرجع لـ html5-qrcode (ستيكر واحد كل مرة).
+  /* ====== الكاميرا ====== */
+  // BarcodeDetector الأصلي (أندرويد/كروم) بيقرا كذا ستيكر بنفس اللقطة؛ غير هيك html5-qrcode.
   var qr = null, camOn = false, usingNative = false;
   var nStream = null, nDet = null, nVideo = null, nTimer = null;
   var FORMATS = ['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','itf','codabar','qr_code','data_matrix'];
@@ -335,7 +405,6 @@
     document.getElementById('startBtn').style.display = 'none';
     if('BarcodeDetector' in window){ startNative(); } else { startQr(); }
   }
-
   function startNative(){
     try{ nDet = new window.BarcodeDetector({ formats: FORMATS }); }
     catch(e){ startQr(); return; }
@@ -346,52 +415,36 @@
       nVideo = document.createElement('video');
       nVideo.setAttribute('playsinline',''); nVideo.muted = true;
       nVideo.style.width = '100%'; nVideo.style.borderRadius = '16px'; nVideo.style.display = 'block';
-      r.appendChild(nVideo);
-      nVideo.srcObject = stream;
+      r.appendChild(nVideo); nVideo.srcObject = stream;
       return nVideo.play();
     })
-    .then(function(){
-      usingNative = true; camOn = true;
-      setRes('📷 مرّر الكاميرا فوق الأجهزة — بيقرا كذا ستيكر مرة وحدة', '');
-      tickNative();
-    })
-    .catch(function(e){ startQr(); });
+    .then(function(){ usingNative = true; camOn = true; setRes('📷 مرّر الكاميرا فوق الأجهزة — بيقرا كذا ستيكر مرة وحدة', ''); tickNative(); })
+    .catch(function(){ startQr(); });
   }
-
   function tickNative(){
-    if(!usingNative){ return; }
+    if(!usingNative) return;
     nDet.detect(nVideo).then(function(codes){
-      for(var i=0;i<codes.length;i++){ handle(codes[i].rawValue); }
-    }).catch(function(){}).then(function(){
-      nTimer = setTimeout(tickNative, 180);   // ~5 لقطات بالثانية
-    });
+      for(var i = 0; i < codes.length; i++){ handle(codes[i].rawValue); }
+    }).catch(function(){}).then(function(){ nTimer = setTimeout(tickNative, 180); });
   }
-
   function startQr(){
     usingNative = false;
     if(!qr) qr = new Html5Qrcode('reader');
+    var F = Html5QrcodeSupportedFormats;
     qr.start({ facingMode: 'environment' }, {
         fps: 15,
-        // نافذة عريضة وكبيرة عشان التمرير يمسك الستيكر من غير تصويب دقيق
         qrbox: function(vw, vh){ return { width: Math.round(vw * 0.92), height: Math.round(vh * 0.55) }; },
         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.CODE_93,
-          Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.CODABAR,
-          Html5QrcodeSupportedFormats.DATA_MATRIX
-        ]
+        formatsToSupport: [F.QR_CODE, F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8,
+          F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.DATA_MATRIX]
       },
       function(txt){ handle(txt); })
-    .then(function(){ camOn = true; setRes('📷 وجّه الكاميرا على الستيكر — واحد كل مرة','',''); })
+    .then(function(){ camOn = true; setRes('📷 وجّه الكاميرا على الستيكر — واحد كل مرة', ''); })
     .catch(function(e){
       document.getElementById('startBtn').style.display = 'block';
       setRes('الكاميرا محجوبة هنا — افتح الصفحة بمتصفح كامل أو استعمل الكتابة اليدوية', 'bad', String(e));
     });
   }
-
   function stopCam(){
     camOn = false;
     if(usingNative){
@@ -404,6 +457,11 @@
     return Promise.resolve();
   }
   function resetCam(){ stopCam().then(startCam); }
+
+  /* ====== تشغيل ====== */
+  setSession(SESSION);
+  updCount();
+  checkStatus();
 </script>
 </body>
 </html>

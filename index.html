@@ -137,7 +137,7 @@
   /* ====== الإعداد ====== */
   // نفس رابط مشروعك — ما بيتغيّر لما تنشر New version.
   var DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwvaVsroOK2BZLj5USyZvKURWrqeEYww4mWaZ2BSRvOYdhdqn17oumYgr63zAZyRDLn/exec';
-  var API_VERSION = 'inv-v3';
+  var API_VERSION = 'inv-v4';
   var URL_KEY = 'as_waurl3';
 
   function ls(k, v){ try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){ return null; } }
@@ -203,7 +203,7 @@
 
   function verOk(r){
     if(r && r.version === API_VERSION){ banner(''); return true; }
-    if(r && !r.net) banner('⚠️ الرابط المحفوظ لسكربت قديم — الجرد ما رح يوصل للتطبيق. افتح ⚙️ الإعداد والصق رابط /exec الجديد.');
+    if(r && !r.net) banner('⚠️ السكربت على جوجل نسخة قديمة — الصق آخر Inventory.gs واعمل Deploy ← New version.');
     return false;
   }
 

@@ -58,8 +58,8 @@
   .mi{padding:10px 2px;border-bottom:1px solid var(--line);line-height:1.55;transition:opacity .35s,background .35s}
   .mi.gone{background:var(--ok);opacity:0}
   .mi-s{font-weight:800;color:var(--accent);direction:ltr;text-align:right;overflow-wrap:anywhere}
-  .mi-m{font-size:13px;color:var(--muted)}
-  .unk{margin-top:10px;font-size:12px;color:#e88;line-height:1.7;direction:ltr;text-align:right;overflow-wrap:anywhere}
+  .mi-m{font-size:13px;color:var(--muted);direction:ltr;text-align:right;unicode-bidi:plaintext}
+  .unk{margin-top:10px;font-size:12px;color:#e88;line-height:1.7;text-align:right;overflow-wrap:anywhere;white-space:pre-line}
   .allgood{padding:16px 4px;text-align:center;font-weight:800;color:#7fd79a}
 </style>
 </head>
@@ -314,7 +314,7 @@
       var d = document.createElement('div'); d.className = 'mi'; d.setAttribute('data-key', it.key || '');
       var s = document.createElement('div'); s.className = 'mi-s'; s.textContent = it.serial || '—';
       var m = document.createElement('div'); m.className = 'mi-m';
-      m.textContent = [it.model, it.color, it.storage, it.battery ? ('بطارية ' + it.battery) : '', it.notes]
+      m.textContent = [it.model, it.color, it.storage, it.battery ? ('🔋' + it.battery) : '', it.notes]
         .filter(function(x){ return x; }).join(' · ');
       d.appendChild(s); d.appendChild(m); list.appendChild(d);
     });
@@ -323,7 +323,12 @@
       list.appendChild(g);
     }
     var unk = Array.isArray(r.unknown) ? r.unknown : [];
-    document.getElementById('rvUnk').textContent = unk.length ? ('أكواد ممسوحة مش بالقائمة (' + unk.length + '): ' + unk.join(' · ')) : '';
+    var skp = Array.isArray(r.skipped) ? r.skipped : [];
+    var lines = [];
+    if(unk.length) lines.push('أكواد ممسوحة مش بالقائمة (' + unk.length + '): ' + unk.join(' · '));
+    if(skp.length) lines.push('سطور بالشيت مش محسوبة (' + skp.length + '): ' + skp.map(function(x){
+      return (x.serial || '—') + ' ' + (x.model ? '(' + x.model + ')' : '') + ' ← ' + x.why; }).join(' · '));
+    if(r.items || r.skipped) document.getElementById('rvUnk').textContent = lines.join('\n');
     reviewMissing = items.length;
     renderReviewControls();
   }
@@ -346,7 +351,10 @@
     if(!el || el.classList.contains('gone')) return;
     el.classList.add('gone');
     setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el);
-      if(!document.querySelector('#rvList .mi')) renderReview({items:[], unknown:[]}); }, 400);
+      var list = document.getElementById('rvList');
+      if(!list.querySelector('.mi')){ list.innerHTML = '';
+        var g = document.createElement('div'); g.className = 'allgood'; g.textContent = 'كل الأجهزة ممسوحة ✓ (' + confirmed + '/' + total + ')';
+        list.appendChild(g); } }, 400);
     reviewMissing = Math.max(0, reviewMissing - 1);
     renderReviewControls();
   }
